@@ -1,7 +1,9 @@
 package com.ch.wchya.study.sptboot.controller;
 
+import com.ch.wchya.study.sptboot.dao.User;
 import com.ch.wchya.study.sptboot.dto.AccessTokenDTO;
 import com.ch.wchya.study.sptboot.dto.GithubUser;
+import com.ch.wchya.study.sptboot.mapper.UserMapper;
 import com.ch.wchya.study.sptboot.provider.GithubProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.UUID;
 
 /**
  * @program: spt-boot
@@ -30,6 +33,9 @@ public class AuthorizeController {
     @Value("${github.redirect.url}")
     private String redirectRul;
 
+    @Autowired
+    private UserMapper userMapper;
+
     @GetMapping("/callback")
     public String callback(@RequestParam(name = "code") String code,
                            @RequestParam(name = "state") String state,
@@ -41,9 +47,16 @@ public class AuthorizeController {
         accessTokenDTO.setState(state);
         accessTokenDTO.setRedirect_uri(redirectRul);
         String token = githubProvider.getAccessToken(accessTokenDTO);
-        GithubUser user = githubProvider.getUser(token);
-        if (null != user) {
-            request.getSession().setAttribute("user", user);
+        GithubUser githubUser = githubProvider.getUser(token);
+        if (null != githubUser) {
+            User user = new User();
+            user.setToken(UUID.randomUUID().toString());
+            user.setName(githubUser.getName());
+            user.setAccountId(String.valueOf(githubUser.getId()));
+            user.setGmtCreate(System.currentTimeMillis());
+            user.setGmtModified(user.getGmtCreate());
+            userMapper.insert(user);
+            request.getSession().setAttribute("user", githubUser);
             return "redirect:/";
         } else {
             return "redirect:/";
